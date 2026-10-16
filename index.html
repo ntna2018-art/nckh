@@ -2,82 +2,80 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>AR Cây Nhị Phân - MindAR</title>
   <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; font-family: Arial, sans-serif; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; font-family: Arial, sans-serif; }
     #huongdan {
       position: fixed; z-index: 10; top: 12px; left: 50%; transform: translateX(-50%);
       width: max-content; max-width: calc(100% - 32px); box-sizing: border-box;
       padding: 10px 14px; border-radius: 12px; color: white;
       background: rgba(20, 20, 35, 0.78); text-align: center; font-size: 14px;
+      line-height: 1.4; pointer-events: none;
     }
+    a-scene { position: fixed; inset: 0; }
   </style>
 </head>
 <body>
-  <div id="huongdan">Đưa camera hướng vào ảnh đích để xem cây nhị phân AR</div>
+  <div id="huongdan">Đưa camera hướng vào ảnh đích, giữ ảnh trong khung hình</div>
 
-  <a-scene mindar-image="imageTargetSrc: ./targets.mind; autoStart: true;"
-           color-space="sRGB"
-           renderer="colorManagement: true, physicallyCorrectLights"
-           vr-mode-ui="enabled: false"
-           device-orientation-permission-ui="enabled: false">
+  <a-scene
+    mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 1000; warmupTolerance: 2; missTolerance: 8; uiLoading: yes; uiScanning: yes; uiError: yes;"
+    color-space="sRGB"
+    renderer="colorManagement: true; physicallyCorrectLights: true; antialias: true"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false">
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
     <a-entity mindar-image-target="targetIndex: 0">
-      <!-- Nền mờ giúp kiểm tra vị trí ảnh đích -->
-      <a-plane position="0 0 0" width="1" height="0.857" color="#172554" opacity="0.16"></a-plane>
+      <!-- Các cạnh dùng line nối đúng tâm các nút, tránh bị xoay/chéo sai -->
+      <a-entity line="start: 0 0.25 0.035; end: -0.27 -0.02 0.035; color: #475569;">
+      </a-entity>
+      <a-entity line="start: 0 0.25 0.035; end: 0.27 -0.02 0.035; color: #475569;">
+      </a-entity>
+      <a-entity line="start: -0.27 -0.02 0.035; end: -0.42 -0.30 0.035; color: #475569;">
+      </a-entity>
+      <a-entity line="start: -0.27 -0.02 0.035; end: -0.12 -0.30 0.035; color: #475569;">
+      </a-entity>
+      <a-entity line="start: 0.27 -0.02 0.035; end: 0.12 -0.30 0.035; color: #475569;">
+      </a-entity>
+      <a-entity line="start: 0.27 -0.02 0.035; end: 0.42 -0.30 0.035; color: #475569;">
+      </a-entity>
 
-      <!-- Tiêu đề -->
-      <a-text value="CAY NHI PHAN" position="-0.42 0.58 0.04"
-              width="1.2" color="#ffe66d" align="center"
-              shader="msdf" negate="false"></a-text>
-
-      <!-- Cạnh cây: các hình trụ mảnh nối nút cha và nút con -->
-      <a-cylinder position="-0.15 0.22 0.04" rotation="0 0 36.9"
-                  radius="0.009" height="0.50" color="#e5e7eb"></a-cylinder>
-      <a-cylinder position="0.15 0.22 0.04" rotation="0 0 -36.9"
-                  radius="0.009" height="0.50" color="#e5e7eb"></a-cylinder>
-
-      <a-cylinder position="-0.36 -0.10 0.04" rotation="0 0 31.0"
-                  radius="0.008" height="0.36" color="#e5e7eb"></a-cylinder>
-      <a-cylinder position="-0.14 -0.10 0.04" rotation="0 0 -31.0"
-                  radius="0.008" height="0.36" color="#e5e7eb"></a-cylinder>
-      <a-cylinder position="0.14 -0.10 0.04" rotation="0 0 31.0"
-                  radius="0.008" height="0.36" color="#e5e7eb"></a-cylinder>
-      <a-cylinder position="0.36 -0.10 0.04" rotation="0 0 -31.0"
-                  radius="0.008" height="0.36" color="#e5e7eb"></a-cylinder>
+      <!-- Tiêu đề đặt trong phạm vi ảnh đích -->
+      <a-text value="CAY NHI PHAN" position="0 0.39 0.06"
+              width="1.05" color="#b45309" align="center"
+              anchor="center" shader="msdf" negate="false"></a-text>
 
       <!-- Nút gốc A -->
-      <a-sphere position="0 0.36 0.09" radius="0.075" color="#ff5a5f"></a-sphere>
-      <a-text value="A" position="-0.025 0.34 0.17" width="0.25"
-              align="center" color="#ffffff"></a-text>
+      <a-sphere position="0 0.25 0.08" radius="0.055" color="#ff5a5f"></a-sphere>
+      <a-text value="A" position="0 0.24 0.145" width="0.18"
+              align="center" anchor="center" color="#ffffff"></a-text>
 
       <!-- Nút con B, C -->
-      <a-sphere position="-0.30 0.08 0.09" radius="0.065" color="#38bdf8"></a-sphere>
-      <a-text value="B" position="-0.325 0.06 0.17" width="0.22"
-              align="center" color="#ffffff"></a-text>
-      <a-sphere position="0.30 0.08 0.09" radius="0.065" color="#38bdf8"></a-sphere>
-      <a-text value="C" position="0.275 0.06 0.17" width="0.22"
-              align="center" color="#ffffff"></a-text>
+      <a-sphere position="-0.27 -0.02 0.08" radius="0.05" color="#38bdf8"></a-sphere>
+      <a-text value="B" position="-0.27 -0.025 0.14" width="0.16"
+              align="center" anchor="center" color="#ffffff"></a-text>
+      <a-sphere position="0.27 -0.02 0.08" radius="0.05" color="#38bdf8"></a-sphere>
+      <a-text value="C" position="0.27 -0.025 0.14" width="0.16"
+              align="center" anchor="center" color="#ffffff"></a-text>
 
-      <!-- Các nút lá D, E, F, G -->
-      <a-sphere position="-0.46 -0.27 0.09" radius="0.052" color="#34d399"></a-sphere>
-      <a-text value="D" position="-0.48 -0.29 0.16" width="0.18"
-              align="center" color="#102a22"></a-text>
-      <a-sphere position="-0.15 -0.27 0.09" radius="0.052" color="#34d399"></a-sphere>
-      <a-text value="E" position="-0.17 -0.29 0.16" width="0.18"
-              align="center" color="#102a22"></a-text>
-      <a-sphere position="0.15 -0.27 0.09" radius="0.052" color="#34d399"></a-sphere>
-      <a-text value="F" position="0.13 -0.29 0.16" width="0.18"
-              align="center" color="#102a22"></a-text>
-      <a-sphere position="0.46 -0.27 0.09" radius="0.052" color="#34d399"></a-sphere>
-      <a-text value="G" position="0.44 -0.29 0.16" width="0.18"
-              align="center" color="#102a22"></a-text>
-
+      <!-- Bốn nút lá D, E, F, G -->
+      <a-sphere position="-0.42 -0.30 0.08" radius="0.043" color="#34d399"></a-sphere>
+      <a-text value="D" position="-0.42 -0.305 0.135" width="0.14"
+              align="center" anchor="center" color="#064e3b"></a-text>
+      <a-sphere position="-0.12 -0.30 0.08" radius="0.043" color="#34d399"></a-sphere>
+      <a-text value="E" position="-0.12 -0.305 0.135" width="0.14"
+              align="center" anchor="center" color="#064e3b"></a-text>
+      <a-sphere position="0.12 -0.30 0.08" radius="0.043" color="#34d399"></a-sphere>
+      <a-text value="F" position="0.12 -0.305 0.135" width="0.14"
+              align="center" anchor="center" color="#064e3b"></a-text>
+      <a-sphere position="0.42 -0.30 0.08" radius="0.043" color="#34d399"></a-sphere>
+      <a-text value="G" position="0.42 -0.305 0.135" width="0.14"
+              align="center" anchor="center" color="#064e3b"></a-text>
     </a-entity>
   </a-scene>
 </body>
