@@ -8,75 +8,239 @@
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   <style>
     html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; font-family: Arial, sans-serif; }
-    #huongdan {
-      position: fixed; z-index: 10; top: 12px; left: 50%; transform: translateX(-50%);
-      width: max-content; max-width: calc(100% - 32px); box-sizing: border-box;
-      padding: 10px 14px; border-radius: 12px; color: white;
-      background: rgba(20, 20, 35, 0.78); text-align: center; font-size: 14px;
-      line-height: 1.4; pointer-events: none;
-    }
     a-scene { position: fixed; inset: 0; }
+
+    .hud { position: fixed; z-index: 10; left: 50%; transform: translateX(-50%);
+           box-sizing: border-box; max-width: calc(100% - 24px); color: #fff;
+           background: rgba(15, 23, 42, 0.80); border-radius: 14px; text-align: center; }
+
+    #huongdan { top: 12px; padding: 10px 14px; font-size: 14px; line-height: 1.4;
+                width: max-content; pointer-events: none; transition: opacity .3s; }
+    #tieude { top: 12px; padding: 8px 16px; font-size: 16px; font-weight: bold;
+              color: #fbbf24; letter-spacing: 1px; display: none; pointer-events: none; }
+
+    #panel { bottom: 12px; width: 460px; padding: 10px 12px; display: none; }
+    #thongtin { font-size: 14px; line-height: 1.45; min-height: 40px; margin-bottom: 8px; }
+    #thutu { font-size: 15px; font-weight: bold; color: #fbbf24; min-height: 20px; margin-bottom: 8px; }
+    .hang { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+    button { border: 0; border-radius: 10px; padding: 9px 12px; font-size: 13px; font-weight: bold;
+             color: #fff; background: #2563eb; cursor: pointer; }
+    button:active { background: #1d4ed8; }
+    button.phu { background: #475569; }
+
+    .chuthich { font-size: 12px; margin-bottom: 8px; }
+    .cham { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 0 4px 0 8px; }
   </style>
 </head>
 <body>
-  <div id="huongdan">Đưa camera hướng vào ảnh đích, giữ ảnh trong khung hình</div>
+  <div id="huongdan" class="hud">Đưa camera hướng vào ảnh đích, giữ ảnh trong khung hình</div>
+  <div id="tieude" class="hud">CÂY NHỊ PHÂN</div>
 
+  <div id="panel" class="hud">
+    <div class="chuthich">
+      <span class="cham" style="background:#ef4444"></span>Gốc
+      <span class="cham" style="background:#3b82f6"></span>Nút trong
+      <span class="cham" style="background:#22c55e"></span>Lá
+    </div>
+    <div id="thongtin">Chạm vào một nút để xem thông tin.</div>
+    <div id="thutu"></div>
+    <div class="hang">
+      <button onclick="duyet('NLR')">Tiền tự (NLR)</button>
+      <button onclick="duyet('LNR')">Trung tự (LNR)</button>
+      <button onclick="duyet('LRN')">Hậu tự (LRN)</button>
+      <button class="phu" onclick="datLai()">Đặt lại</button>
+    </div>
+  </div>
+
+  <!--
+    maxTrack: 1  -> chỉ theo dõi 1 ảnh
+    filterMinCF  -> càng NHỎ càng mượt (ít rung) khi ảnh đứng yên
+    filterBeta   -> càng NHỎ càng mượt nhưng trễ hơn khi di chuyển nhanh
+    warmupTolerance / missTolerance -> tăng để ít nhận nhầm / ít mất bám
+  -->
   <a-scene
-    mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 1000; warmupTolerance: 2; missTolerance: 8; uiLoading: yes; uiScanning: yes; uiError: yes;"
+    mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 100; warmupTolerance: 5; missTolerance: 10; uiLoading: yes; uiScanning: yes; uiError: yes;"
     color-space="sRGB"
-    renderer="colorManagement: true; physicallyCorrectLights: true; antialias: true"
+    renderer="colorManagement: true; antialias: true"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false">
 
-    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+    <!-- Ánh sáng: thiếu đèn thì màu bị tối -->
+    <a-entity light="type: ambient; color: #ffffff; intensity: 0.9"></a-entity>
+    <a-entity light="type: directional; color: #ffffff; intensity: 0.8" position="0.5 1 1"></a-entity>
 
-    <a-entity mindar-image-target="targetIndex: 0">
-      <!-- Các cạnh dùng line nối đúng tâm các nút, tránh bị xoay/chéo sai -->
-      <a-entity line="start: 0 0.25 0.035; end: -0.27 -0.02 0.035; color: #475569;">
-      </a-entity>
-      <a-entity line="start: 0 0.25 0.035; end: 0.27 -0.02 0.035; color: #475569;">
-      </a-entity>
-      <a-entity line="start: -0.27 -0.02 0.035; end: -0.42 -0.30 0.035; color: #475569;">
-      </a-entity>
-      <a-entity line="start: -0.27 -0.02 0.035; end: -0.12 -0.30 0.035; color: #475569;">
-      </a-entity>
-      <a-entity line="start: 0.27 -0.02 0.035; end: 0.12 -0.30 0.035; color: #475569;">
-      </a-entity>
-      <a-entity line="start: 0.27 -0.02 0.035; end: 0.42 -0.30 0.035; color: #475569;">
-      </a-entity>
+    <a-camera position="0 0 0" look-controls="enabled: false"
+              cursor="rayOrigin: mouse; fuse: false"
+              raycaster="objects: .clickable"></a-camera>
 
-      <!-- Tiêu đề đặt trong phạm vi ảnh đích -->
-      <a-text value="CAY NHI PHAN" position="0 0.39 0.06"
-              width="1.05" color="#b45309" align="center"
-              anchor="center" shader="msdf" negate="false"></a-text>
-
-      <!-- Nút gốc A -->
-      <a-sphere position="0 0.25 0.08" radius="0.055" color="#ff5a5f"></a-sphere>
-      <a-text value="A" position="0 0.24 0.145" width="0.18"
-              align="center" anchor="center" color="#ffffff"></a-text>
-
-      <!-- Nút con B, C -->
-      <a-sphere position="-0.27 -0.02 0.08" radius="0.05" color="#38bdf8"></a-sphere>
-      <a-text value="B" position="-0.27 -0.025 0.14" width="0.16"
-              align="center" anchor="center" color="#ffffff"></a-text>
-      <a-sphere position="0.27 -0.02 0.08" radius="0.05" color="#38bdf8"></a-sphere>
-      <a-text value="C" position="0.27 -0.025 0.14" width="0.16"
-              align="center" anchor="center" color="#ffffff"></a-text>
-
-      <!-- Bốn nút lá D, E, F, G -->
-      <a-sphere position="-0.42 -0.30 0.08" radius="0.043" color="#34d399"></a-sphere>
-      <a-text value="D" position="-0.42 -0.305 0.135" width="0.14"
-              align="center" anchor="center" color="#064e3b"></a-text>
-      <a-sphere position="-0.12 -0.30 0.08" radius="0.043" color="#34d399"></a-sphere>
-      <a-text value="E" position="-0.12 -0.305 0.135" width="0.14"
-              align="center" anchor="center" color="#064e3b"></a-text>
-      <a-sphere position="0.12 -0.30 0.08" radius="0.043" color="#34d399"></a-sphere>
-      <a-text value="F" position="0.12 -0.305 0.135" width="0.14"
-              align="center" anchor="center" color="#064e3b"></a-text>
-      <a-sphere position="0.42 -0.30 0.08" radius="0.043" color="#34d399"></a-sphere>
-      <a-text value="G" position="0.42 -0.305 0.135" width="0.14"
-              align="center" anchor="center" color="#064e3b"></a-text>
+    <a-entity id="target" mindar-image-target="targetIndex: 0">
+      <a-entity id="cay" binary-tree></a-entity>
     </a-entity>
   </a-scene>
+
+  <script>
+    /* ------------------------------------------------------------------
+     * DỮ LIỆU CÂY - toạ độ pixel đo trực tiếp trên ảnh đích (425 x 364).
+     * Nếu ảnh đích của bạn có kích thước khác, sửa W, H và các px, py.
+     * Thêm ?debug vào URL để hiện khung xanh = đúng bằng ảnh đích.
+     * ------------------------------------------------------------------ */
+    const W = 425, H = 364;
+    const TREE = {
+      1: { px: 224, py: 73,  left: 2,    right: null },
+      2: { px: 222, py: 162, left: 3,    right: 4 },
+      3: { px: 144, py: 237, left: 5,    right: 6 },
+      4: { px: 312, py: 238, left: null, right: null },
+      5: { px: 66,  py: 327, left: null, right: null },
+      6: { px: 204, py: 331, left: null, right: null }
+    };
+    const ROOT = 1;
+    const COLOR = { root: '#ef4444', inner: '#3b82f6', leaf: '#22c55e', hi: '#facc15' };
+
+    // Tính cha, mức, vai trò
+    (function prepare() {
+      (function walk(id, parent, depth) {
+        const n = TREE[id];
+        n.parent = parent; n.depth = depth; n.id = id;
+        n.role = id === ROOT ? 'root' : (n.left || n.right) ? 'inner' : 'leaf';
+        if (n.left) walk(n.left, id, depth + 1);
+        if (n.right) walk(n.right, id, depth + 1);
+      })(ROOT, null, 0);
+    })();
+
+    const ROLE_TEXT = { root: 'Nút gốc', inner: 'Nút trong', leaf: 'Nút lá' };
+    const toUnit = (px, py) => new THREE.Vector3((px - W / 2) / W, (H / 2 - py) / W, 0);
+
+    /* ------------------------------------------------------------------ */
+    AFRAME.registerComponent('binary-tree', {
+      init: function () {
+        const root = this.el;
+        this.nodeEls = {};
+
+        // Khung debug
+        if (location.search.indexOf('debug') >= 0) {
+          const f = document.createElement('a-plane');
+          f.setAttribute('width', 1); f.setAttribute('height', H / W);
+          f.setAttribute('color', '#00c2ff'); f.setAttribute('opacity', 0.25);
+          root.appendChild(f);
+        }
+
+        // Cạnh: hình trụ nối tâm hai nút
+        Object.keys(TREE).forEach(id => {
+          const n = TREE[id];
+          [n.left, n.right].forEach(cid => {
+            if (!cid) return;
+            const a = toUnit(n.px, n.py), b = toUnit(TREE[cid].px, TREE[cid].py);
+            const dir = new THREE.Vector3().subVectors(b, a);
+            const len = dir.length();
+            const edge = document.createElement('a-entity');
+            edge.setAttribute('geometry', 'primitive: cylinder; radius: 0.007; height: ' + len + '; segmentsRadial: 12');
+            edge.setAttribute('material', 'color: #1e293b; roughness: 0.6; metalness: 0');
+            edge.object3D.position.copy(a.clone().add(b).multiplyScalar(0.5)).setZ(0.03);
+            edge.object3D.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+            root.appendChild(edge);
+          });
+        });
+
+        // Nút: cầu + số
+        Object.keys(TREE).forEach(id => {
+          const n = TREE[id];
+          const p = toUnit(n.px, n.py);
+          const node = document.createElement('a-entity');
+          node.classList.add('clickable');
+          node.setAttribute('geometry', 'primitive: sphere; radius: 0.043; segmentsWidth: 32; segmentsHeight: 24');
+          node.setAttribute('material', 'color: ' + COLOR[n.role] + '; roughness: 0.35; metalness: 0.1');
+          node.object3D.position.set(p.x, p.y, 0.05);
+          node.dataset.id = id;
+
+          const label = document.createElement('a-text');
+          label.setAttribute('value', id);
+          label.setAttribute('align', 'center');
+          label.setAttribute('anchor', 'center');
+          label.setAttribute('color', '#ffffff');
+          label.setAttribute('width', 0.28);
+          label.setAttribute('position', '0 0 0.045');
+          node.appendChild(label);
+
+          node.addEventListener('click', () => chonNut(Number(id)));
+          root.appendChild(node);
+          this.nodeEls[id] = node;
+        });
+
+        window.__nodeEls = this.nodeEls;
+      }
+    });
+
+    /* ----------------------- Giao diện & tương tác ----------------------- */
+    const $ = id => document.getElementById(id);
+    let timers = [];
+
+    function setNode(id, on) {
+      const el = window.__nodeEls && window.__nodeEls[id];
+      if (!el) return;
+      const col = on ? COLOR.hi : COLOR[TREE[id].role];
+      el.setAttribute('material', 'color', col);
+      el.setAttribute('scale', on ? '1.25 1.25 1.25' : '1 1 1');
+    }
+    function xoaSang() { Object.keys(TREE).forEach(id => setNode(id, false)); }
+
+    function chonNut(id) {
+      huyDuyet(); xoaSang(); setNode(id, true);
+      const n = TREE[id];
+      const con = [n.left, n.right].filter(Boolean);
+      $('thongtin').innerHTML =
+        '<b>Nút ' + id + '</b> – ' + ROLE_TEXT[n.role] + ' (mức ' + n.depth + ')<br>' +
+        'Cha: ' + (n.parent || 'không có') + ' | Con: ' + (con.length ? con.join(', ') : 'không có');
+      $('thutu').textContent = '';
+    }
+
+    function thuTu(kind, id, out) {
+      if (!id) return out;
+      const n = TREE[id];
+      if (kind === 'NLR') out.push(id);
+      thuTu(kind, n.left, out);
+      if (kind === 'LNR') out.push(id);
+      thuTu(kind, n.right, out);
+      if (kind === 'LRN') out.push(id);
+      return out;
+    }
+
+    function huyDuyet() { timers.forEach(clearTimeout); timers = []; }
+
+    function duyet(kind) {
+      huyDuyet(); xoaSang();
+      const names = { NLR: 'Tiền tự (Gốc–Trái–Phải)', LNR: 'Trung tự (Trái–Gốc–Phải)', LRN: 'Hậu tự (Trái–Phải–Gốc)' };
+      const seq = thuTu(kind, ROOT, []);
+      $('thongtin').innerHTML = '<b>Duyệt ' + names[kind] + '</b><br>(nút 2 là con trái của nút 1)';
+      $('thutu').textContent = '';
+      seq.forEach((id, i) => {
+        timers.push(setTimeout(() => {
+          xoaSang(); setNode(id, true);
+          $('thutu').textContent = seq.slice(0, i + 1).join(' → ');
+        }, i * 1000));
+      });
+      timers.push(setTimeout(xoaSang, seq.length * 1000 + 500));
+    }
+
+    function datLai() {
+      huyDuyet(); xoaSang();
+      $('thongtin').textContent = 'Chạm vào một nút để xem thông tin.';
+      $('thutu').textContent = '';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const target = $('target');
+      target.addEventListener('targetFound', () => {
+        $('huongdan').style.display = 'none';
+        $('tieude').style.display = 'block';
+        $('panel').style.display = 'block';
+      });
+      target.addEventListener('targetLost', () => {
+        $('huongdan').style.display = 'block';
+        $('tieude').style.display = 'none';
+        $('panel').style.display = 'none';
+        datLai();
+      });
+    });
+  </script>
 </body>
 </html>
