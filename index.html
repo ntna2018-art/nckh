@@ -295,19 +295,38 @@ let cvReady=false, video=null, cvCanvas=null, cvCtx=null, cvTimer=0;
 let renderer=null, scene=null, cam3d=null, overlayGroup=null, scanActive=false, cvBusy=false;
 let cvStream=null, lastDetected=0;
 function loadOpenCV(){
-  return new Promise((resolve,reject)=>{
+  return new Promise(async(resolve,reject)=>{
     if(window.cv && window.cv.Mat){cvReady=true;resolve();return}
-    const old=document.querySelector('script[data-opencv]');
-    if(old){old.addEventListener('load',()=>{cvReady=true;resolve()},{once:true});old.addEventListener('error',reject,{once:true});return}
-    const sc=document.createElement('script');sc.dataset.opencv='1';
-    sc.src='https://docs.opencv.org/4.x/opencv.js';sc.async=true;
-    sc.onload=()=>{
-      const begin=()=>{if(window.cv&&window.cv.Mat){cvReady=true;resolve()}else setTimeout(begin,100)};
-      begin();
-    };
-    sc.onerror=()=>reject(new Error('Không tải được OpenCV.js. Kiểm tra kết nối mạng.'));
-    document.head.appendChild(sc);
-    setTimeout(()=>{if(!cvReady)reject(new Error('OpenCV.js tải quá lâu. Hãy tải lại trang và thử lại.'))},30000);
+    // Thử lần lượt nhiều nguồn để tránh lỗi khi một CDN bị chặn.
+    const sources=[
+      'https://docs.opencv.org/4.x/opencv.js',
+      'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js'
+    ];
+    let lastError=null;
+    for(const src of sources){
+      try{
+        await new Promise((res,rej)=>{
+          const sc=document.createElement('script');
+          sc.dataset.opencv='1';sc.src=src;sc.async=true;
+          let finished=false;
+          const timer=setTimeout(()=>done(false,new Error('Hết thời gian tải '+src)),25000);
+          function done(ok,err){if(finished)return;finished=true;clearTimeout(timer);if(!ok)sc.remove();ok?res():rej(err)}
+          sc.onload=()=>{
+            const start=Date.now();
+            const waitForRuntime=()=>{
+              if(window.cv&&window.cv.Mat){cvReady=true;done(true);return}
+              if(Date.now()-start>20000){done(false,new Error('OpenCV.js tải về nhưng chưa khởi tạo được')) ;return}
+              setTimeout(waitForRuntime,150);
+            };
+            waitForRuntime();
+          };
+          sc.onerror=()=>done(false,new Error('Không tải được '+src));
+          document.head.appendChild(sc);
+        });
+        resolve();return;
+      }catch(e){lastError=e;}
+    }
+    reject(new Error('Không tải được OpenCV.js từ các nguồn dự phòng. Hãy đổi mạng hoặc tải thư viện về lưu cùng dự án. Chi tiết: '+(lastError?.message||'')));
   });
 }
 async function loadLibs(){
