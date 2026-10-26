@@ -58,11 +58,45 @@ addEventListener('unhandledrejection',function(e){showErr((e.reason&&e.reason.me
 <script type="importmap">
 {"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}
 </script>
+<script>
+// Tải OpenCV.js không chặn giao diện; nếu CDN không tải được, website vẫn dùng bộ quét dự phòng.
+window.__opencvLoaded = false;
+window.__opencvError = false;
+(function loadOpenCV() {
+  var script = document.createElement('script');
+  script.src = 'https://docs.opencv.org/4.x/opencv.js';
+  script.async = true;
+  script.onload = async function () {
+    try {
+      if (window.cv && typeof window.cv.then === 'function') window.cv = await window.cv;
+    } catch (e) { window.__opencvError = true; return; }
+    var started = Date.now();
+    (function waitForRuntime() {
+      if (window.cv && window.cv.Mat && window.cv.cvtColor) {
+        window.__opencvLoaded = true;
+        console.info('OpenCV.js đã sẵn sàng');
+        return;
+      }
+      if (Date.now() - started > 30000) {
+        window.__opencvError = true;
+        console.warn('OpenCV.js tải quá thời gian; dùng bộ quét dự phòng.');
+        return;
+      }
+      setTimeout(waitForRuntime, 100);
+    })();
+  };
+  script.onerror = function () {
+    window.__opencvError = true;
+    console.warn('Không tải được OpenCV.js; dùng bộ quét dự phòng.');
+  };
+  document.head.appendChild(script);
+})();
+</script>
 </head>
 <body>
 <div id="ar"></div>
 <div id="start"><h1>AR Cây nhị phân 3D</h1>
-<p>Đưa camera vào hình cây nhị phân (in hoặc vẽ tay, nét tối trên nền sáng). Web tự nhận diện nút – đường nối, dựng cây 3D và <b>khóa cây vừa quét</b> để bạn duyệt, thêm, xóa, tìm kiếm trên chính cây đó.</p>
+<p>Đưa camera vào hình cây nhị phân (in hoặc vẽ tay, nét tối trên nền sáng). Web tự nhận diện nút – đường nối, dựng cây 3D và <b>khóa cây vừa quét</b> để bạn duyệt, thêm, xóa, tìm kiếm trên chính cây đó. OpenCV.js hỗ trợ làm sạch nét nếu tải được thư viện.</p>
 <p id="stt">⏳ Đang khởi động...</p><button id="bAR" disabled>Bắt đầu quét AR</button></div>
 <div id="top" class="gl"><span>TRẠNG THÁI AR: <b id="st"></b></span><span class="sep">|</span><span>CHẾ ĐỘ: <b id="mt"></b></span><span class="sp"></span>
 <select id="les"></select><select id="vw"><option value="tree">Cây 3D AR</option><option value="arr">Mảng 1 chiều T[]</option><option value="ptr">Con trỏ liên kết</option></select>
@@ -250,7 +284,7 @@ function analyze(gray,w,h){
   for(let y=0;y<h;y++){const y0=Math.max(0,y-k),y1=Math.min(h,y+k+1);
     for(let x=0;x<w;x++){const x0=Math.max(0,x-k),x1=Math.min(w,x+k+1),g=gray[y*w+x],
       m=(I[y1*W1+x1]-I[y0*W1+x1]-I[y1*W1+x0]+I[y0*W1+x0])/((x1-x0)*(y1-y0));
-      ink[y*w+x]=g<m-14&&g<m*.72?1:0}}
+      ink[y*w+x]=g<m-7&&g<m*.88?1:0}}
   const t=new Uint8Array(N),dl=new Uint8Array(N);                      // giãn nét 3×3 để nối chỗ hở của nét vẽ tay
   for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=y*w+x;t[i]=ink[i]||(x>0&&ink[i-1])||(x<w-1&&ink[i+1])?1:0}
   for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=y*w+x;dl[i]=t[i]||(y>0&&t[i-w])||(y<h-1&&t[i+w])?1:0}
@@ -264,11 +298,11 @@ function analyze(gray,w,h){
       if(y>0&&!dl[i-w]&&!seen[i-w]){seen[i-w]=1;q[tl++]=i-w}
       if(y<h-1&&!dl[i+w]&&!seen[i+w]){seen[i+w]=1;q[tl++]=i+w}}
     qn=tl;const area=tl-st;if(bd||area<30||area>N/8)continue;
-    const bw=x1-x0+1,bh=y1-y0+1,as=bw/bh;if(as<.7||as>1.43)continue;
+    const bw=x1-x0+1,bh=y1-y0+1,as=bw/bh;if(as<.62||as>1.6)continue;
     const cx=(x0+x1)/2,cy=(y0+y1)/2,mr=new Float64Array(16);
     for(let j=st;j<tl;j++){const i=q[j],dx=i%w-cx,dy=((i/w)|0)-cy,s=((Math.atan2(dy,dx)/6.2832+1)*16|0)%16,d=Math.hypot(dx,dy);if(d>mr[s])mr[s]=d}
     const mean=mr.reduce((u,v)=>u+v)/16,sd=Math.sqrt(mr.reduce((u,v)=>u+(v-mean)**2,0)/16)/mean,fill=area/(Math.PI*mean*mean);
-    if(mean<4||Math.min(...mr)<=0||sd>.11||fill<.4||fill>1.15)continue;
+    if(mean<3.5||Math.min(...mr)<=0||sd>.17||fill<.30||fill>1.3)continue;
     cs.push({x:cx,y:cy,r:mean+1.5})}
   cs.sort((a,b)=>b.r-a.r);let C=[];                                    // bỏ lỗ nằm trong nút khác (ruột số 0,6,8,9…)
   for(const c of cs)if(!C.some(b=>Math.hypot(b.x-c.x,b.y-c.y)<b.r))C.push(c);
@@ -283,7 +317,7 @@ function analyze(gray,w,h){
     let hit=0,tot=0;
     for(let s=g0;s<=g1;s++){tot++;const px=a.x+ux*s,py=a.y+uy*s;let ok=0;
       for(const o of[-2,0,2]){const X=Math.round(px-uy*o),Y=Math.round(py+ux*o);if(X>=0&&Y>=0&&X<w&&Y<h&&dl[Y*w+X]){ok=1;break}}hit+=ok}
-    if(hit/tot>.9)ed.push([i,j])}
+    if(hit/tot>.72)ed.push([i,j])}
   return {C,ed,tr:mkTree(C,ed)};
 }
 function mkTree(C,ed){
@@ -311,8 +345,39 @@ function mkTree(C,ed){
 
 // ================= AR KHÔNG CẦN ẢNH ĐÍCH =================
 const AC=document.createElement('canvas');
-function grayOf(cv){const d=cv.getContext('2d',{willReadFrequently:true}).getImageData(0,0,cv.width,cv.height).data,o=new Uint8Array(cv.width*cv.height);for(let i=0,j=0;i<o.length;i++,j+=4)o[i]=(d[j]*77+d[j+1]*150+d[j+2]*29)>>8;return o}
-function scanSrc(src,sw,sh,max=640){const s=max/Math.max(sw,sh);AC.width=Math.round(sw*s);AC.height=Math.round(sh*s);AC.getContext('2d',{willReadFrequently:true}).drawImage(src,0,0,AC.width,AC.height);const r=analyze(grayOf(AC),AC.width,AC.height);r.s=s;return r}
+const PC=document.createElement('canvas');
+let cvFrameCount=0, cvFrameLast=0;
+function grayOf(canvas){const d=canvas.getContext('2d',{willReadFrequently:true}).getImageData(0,0,canvas.width,canvas.height).data,o=new Uint8Array(canvas.width*canvas.height);for(let i=0,j=0;i<o.length;i++,j+=4)o[i]=(d[j]*77+d[j+1]*150+d[j+2]*29)>>8;return o}
+// OpenCV tách nét khỏi nền và nối khe hở nhỏ. Trả về false khi thư viện chưa sẵn sàng.
+function preprocessOpenCV(canvas){
+  if(!window.__opencvLoaded || !window.cv || !cv.Mat) return false;
+  let src=null,gray=null,blur=null,bin=null,kernel=null;
+  try{
+    src=cv.imread(canvas);
+    gray=new cv.Mat();
+    cv.cvtColor(src,gray,cv.COLOR_RGBA2GRAY);
+    blur=new cv.Mat();
+    cv.GaussianBlur(gray,blur,new cv.Size(3,3),0,0,cv.BORDER_DEFAULT);
+    bin=new cv.Mat();
+    cv.adaptiveThreshold(blur,bin,255,cv.ADAPTIVE_THRESH_GAUSSIAN_C,cv.THRESH_BINARY_INV,21,7);
+    kernel=cv.getStructuringElement(cv.MORPH_ELLIPSE,new cv.Size(3,3));
+    cv.morphologyEx(bin,bin,cv.MORPH_CLOSE,kernel);
+    cv.bitwise_not(bin,bin); // nền trắng, nét đen — định dạng phù hợp với analyze()
+    PC.width=canvas.width; PC.height=canvas.height;
+    cv.imshow(PC,bin);
+    cvFrameCount++;
+    return true;
+  }catch(e){console.warn('OpenCV tiền xử lý lỗi, chuyển sang bộ quét thường:',e);return false}
+  finally{if(src)src.delete();if(gray)gray.delete();if(blur)blur.delete();if(bin)bin.delete();if(kernel)kernel.delete()}
+}
+function scanSrc(src,sw,sh,max=640){
+  const s=max/Math.max(sw,sh);
+  AC.width=Math.max(1,Math.round(sw*s));AC.height=Math.max(1,Math.round(sh*s));
+  AC.getContext('2d',{willReadFrequently:true}).drawImage(src,0,0,AC.width,AC.height);
+  const usedCV=preprocessOpenCV(AC);
+  const r=analyze(grayOf(usedCV?PC:AC),AC.width,AC.height);
+  r.s=s;r.usedCV=usedCV;return r
+}
 
 let ocrW=null;
 async function getOcr(){if(ocrW)return ocrW;
@@ -428,7 +493,7 @@ $('#bAR').onclick=async()=>{
     say('🔍 Đưa camera vào hình cây nhị phân (nền sáng, nét tối)');
     const step=()=>{
       const vw=vid.videoWidth,vh=vid.videoHeight;if(!vw)return;
-      const r=scanSrc(vid,vw,vh,mode=='scan'?640:480),k=Math.max(SW/vw,SH/vh),a=k/r.s,ox=(SW-vw*k)/2,oy=(SH-vh*k)/2,P=(x,y)=>[x*a+ox,y*a+oy];G={a,ox,oy};
+      const r=scanSrc(vid,vw,vh,640),k=Math.max(SW/vw,SH/vh),a=k/r.s,ox=(SW-vw*k)/2,oy=(SH-vh*k)/2,P=(x,y)=>[x*a+ox,y*a+oy];G={a,ox,oy};
       if(mode=='scan'){
         og.clearRect(0,0,SW,SH);og.lineWidth=3;og.strokeStyle='#ff4d8d';
         r.ed.forEach(([i,j])=>{const A=P(r.C[i].x,r.C[i].y),B=P(r.C[j].x,r.C[j].y);og.beginPath();og.moveTo(A[0],A[1]);og.lineTo(B[0],B[1]);og.stroke()});
@@ -438,7 +503,7 @@ $('#bAR').onclick=async()=>{
             const xs=r.C.flatMap(c=>[c.x-c.r,c.x+c.r]),ys=r.C.flatMap(c=>[c.y-c.r,c.y+c.r]),bw=Math.max(...xs)-Math.min(...xs),bh=Math.max(...ys)-Math.min(...ys);
             M={pts:r.C.map(c=>({x:c.x,y:c.y,r:c.r})),cx:(Math.max(...xs)+Math.min(...xs))/2,cy:(Math.max(...ys)+Math.min(...ys))/2,pxS:Math.max(bw*1.18,bh*1.18/.77,60)};
             qr=1;qi=0;tx=ty=0;lost=0;mode='track';og.clearRect(0,0,SW,SH);rig.visible=true;document.body.classList.remove('scan');ui();
-            const map=adopt(r.tr);locked=true;isLocked=true;document.body.classList.add('locked');say('');ui();toast('🔒 Đã quét & khóa cây: '+r.tr.info);readDigits(snap,r.C,1/r.s,map).then(afterScan)}}
+            const map=adopt(r.tr);locked=false;isLocked=false;document.body.classList.remove('locked');say('');ui();toast('🌳 Đã nhận diện cây — đang theo dõi hình giấy');readDigits(snap,r.C,1/r.s,map).then(afterScan)}}
         else{stable=0;lastSig='';say(r.C.length?`🔍 Thấy ${r.C.length} nút, ${r.ed.length} đường nối — ${r.tr.msg}`:'🔍 Đưa camera vào hình cây nhị phân (nền sáng, nét tối)')}
         return}
       const pr=[],used=new Set();                                   // theo dõi: ghép nút cũ ↔ nút mới, tính phép biến đổi đồng dạng (xoay+co giãn+dịch)
